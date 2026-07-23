@@ -71,20 +71,25 @@ purchases lower it), with noise, ~1.5% missing values, and duplicate rows for th
 |---|---|
 | Customers | 50,000 |
 | Raw columns | 22 |
-| Churn rate | ≈11% |
+| Churn rate | ≈9% |
 | Missingness | ~1.5% in three columns |
+
+The churn label includes **non-linear threshold effects and interactions** (silence cliffs, support-ticket
+escalation, segment-specific price sensitivity, deal-chasing) — the kind of structure real churn has,
+and the reason deep models outperform the linear baseline here.
 
 ## Results (test set)
 
 | Model | ROC-AUC | PR-AUC |
 |-------|---------|--------|
-| PyTorch MLP | see `reports/` | |
-| TensorFlow MLP | see `reports/` | |
-| Logistic Regression | see `reports/` | |
+| **TensorFlow MLP** | **0.8349** | 0.4250 |
+| PyTorch MLP | 0.8321 | 0.4257 |
+| Logistic Regression (baseline) | 0.8009 | 0.3510 |
 
-Top-decile targeting: the model concentrates the majority of true churners into the top 10% of
-risk scores — full numbers, charts, and the dollar-impact model are in the notebook and the PDF
-report in `reports/`.
+**Top-decile targeting:** ranking customers by predicted risk concentrates **49% of all true churners**
+into the top 10% of customers at **45% precision** — a **4.9× lift** over untargeted outreach, worth an
+estimated **$86M/year net** at Chewy's scale under conservative assumptions. Full numbers, charts, and
+the dollar-impact model are in the notebook and the PDF report in `reports/`.
 
 ## Disclaimer
 
