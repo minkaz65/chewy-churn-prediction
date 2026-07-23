@@ -91,22 +91,30 @@ def generate(n=50000, seed=RNG_SEED):
     avg_delivery_days = np.clip(rng.normal(2.6, 1.1, n), 1, 10).round(1)
     price_increase_flag = (rng.uniform(0, 1, n) < 0.30).astype(int)  # saw a price hike
 
-    # ---- Churn label (causally generated) -----------------------------------
+    # ---- Churn label (causally generated, with realistic non-linear effects) --
+    # Real churn is driven by thresholds and interactions, not straight lines:
+    # silence cliffs, ticket escalation, segment-specific price sensitivity,
+    # deal-chasing behavior, and engagement that only counts when it's active.
+    plan_prem = (plan == "Autoship-Premium").astype(int)
     z = (
-        -1.55
-        - 1.10 * is_autoship
-        - 0.016 * tenure_months
-        - 0.10 * orders_per_quarter
-        + 0.0125 * days_since_last_order
-        + 0.55 * unresolved_tickets
-        + 0.28 * refunds_12m
-        + 0.16 * avg_delivery_days
-        + 0.55 * price_increase_flag
-        - 0.85 * email_open_rate
-        - 0.022 * app_sessions_per_month
-        - 0.60 * pct_pharmacy            # pharmacy users are sticky
-        - 0.04 * num_pets
-        + rng.normal(0, 0.55, n)          # irreducible noise
+        -2.75
+        - 0.60 * is_autoship
+        - 0.012 * tenure_months
+        + 3.0 * (days_since_last_order > 45) * (1 - is_autoship)   # silence cliff (non-subscribers)
+        + 1.2 * (days_since_last_order > 150) * is_autoship        # only extreme silence matters on Autoship
+        + 0.7 * unresolved_tickets + 1.6 * (unresolved_tickets >= 2)  # ticket escalation
+        + 1.2 * (refunds_12m >= 2)
+        + 1.8 * (avg_delivery_days > 4) * (pct_pharmacy > 0.18)    # slow delivery hurts pharmacy buyers
+        + 0.2 * price_increase_flag + 1.8 * price_increase_flag * plan_prem  # premium price sensitivity
+        + 2.0 * used_promo_last_90d * (tenure_months < 8)          # deal-chasers churn after intro offer
+        - 0.6 * used_promo_last_90d * (tenure_months >= 8)         # ...but promos retain loyal customers
+        + 1.2 * (tenure_months < 6) * (1 - is_autoship)            # newbie cliff
+        - 1.3 * email_open_rate * (app_sessions_per_month > 5)     # engagement counts when app-active
+        + 0.4 * email_open_rate * (app_sessions_per_month <= 5)
+        - 0.60 * pct_pharmacy                                      # pharmacy users are sticky
+        + 0.10 * np.abs(num_pets - 3)                              # mild U-shape in pet count
+        - 0.05 * orders_per_quarter
+        + rng.normal(0, 0.30, n)                                   # irreducible noise
     )
     churn_prob = sigmoid(z)
     churned = (churn_prob > rng.uniform(0, 1, n)).astype(int)
